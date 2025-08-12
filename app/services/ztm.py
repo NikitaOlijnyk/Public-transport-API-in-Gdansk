@@ -5,6 +5,12 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+
 import httpx
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -126,10 +132,12 @@ async def get_departures():
     return {"side_a": a, "side_b": b}
 
 
-@app.get("/")
-async def index():
-    async with _state_lock:
-        a = _route_a or {}
-        b = _route_b or {}
-    html = "<html><body><h1>Departures (preview)</h1><pre>{}</pre><pre>{}</pre></body></html>".format(a, b)
-    return HTMLResponse(html)
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    a = _route_a["data"] if _route_a and not _route_a.get("error") else []
+    b = _route_b["data"] if _route_b and not _route_b.get("error") else []
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "side_a": a,
+        "side_b": b
+    })
