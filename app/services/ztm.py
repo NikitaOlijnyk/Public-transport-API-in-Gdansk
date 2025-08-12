@@ -1,68 +1,135 @@
-import asyncio
 import os
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
 import httpx
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse, HTMLResponse
 from dotenv import load_dotenv
-from contextlib import asynccontextmanager
 
 load_dotenv()
 
-API_URL=os.getenv("API_URL")
+API_URL = os.getenv("API_URL", "https://ckan2.multimediagdansk.pl").rstrip("/")
+STOP_A = os.getenv("STOP_A", "")
+STOP_B = os.getenv("STOP_B", "")
+POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "60"))
+TZ = ZoneInfo("Europe/Warsaw")
+
+logger = logging.getLogger("ztm")
+logging.basicConfig(level=logging.INFO)
+
+_route_a = None
+_route_b = None
+_state_lock = asyncio.Lock()
 
 
+def parse_time_to_warsaw(timestr: str):
+    if not timestr:
+        return None
+    try:
+        if timestr.endswith("Z"):
+            iso = timestr[:-1] + "+00:00"
+        else:
+            iso = timestr
+        dt = datetime.fromisoformat(iso)
+    except Exception:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(TZ)
 
-route_data_side_a = None
-route_data_side_b = None
+
+def transform_departure_item(item: dict) -> dict:
+    est = item.get("estimatedTime") or item.get("estimated_time") or item.get("theoreticalTime")
+    dt_local = parse_time_to_warsaw(est)
+    delay = item.get("delayInSeconds")
+    try:
+        delay = int(delay) if delay is not None else 0
+    except Exception:
+        delay = 0
+    return {
+        "line": item.get("routeShortName") or item.get("route_short_name") or item.get("route") or "",
+        "direction": item.get("headsign") or item.get("destination") or "",
+        "time_warsaw": dt_local.isoformat() if dt_local else None,
+        "delay_seconds": delay,
+        "raw": item
+    }
 
 
+async def fetch_departures_for_stop(stopid: str) -> dict:
+    url = f"{API_URL}/departures?stopId={stopid}"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            payload = resp.json()
+    except Exception as exc:
+        logger.exception("Fetch failed for %s: %s", stopid, exc)
+        return {"stopid": stopid, "error": True, "data": None, "lastUpdate": None}
+    items = payload.get("departures") if isinstance(payload, dict) else []
+    transformed = [transform_departure_item(it) for it in items]
+    return {
+        "stopid": stopid,
+        "error": False,
+        "lastUpdate": payload.get("lastUpdate"),
+        "data": transformed
+    }
 
-async def fetch_departures(url:str, query:str):
-    api_url = url + query
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(api_url)
-            response.raise_for_status()
-            latest_data = response.json()
-            print(f"Data update: {latest_data}")
-            return {"data": latest_data, "error": False}
-        except Exception as e:
-            print(f"Error in taked data: {e}")
-            return {"data": None, "error": True}
 
-get_data_route_a = lambda: fetch_departures(API_URL, "/departures?stopid=2101")
-get_data_route_b = lambda: fetch_departures(API_URL, "/departures?stopid=2102")
-
+async def _update_once():
+    global _route_a, _route_b
+    a = await fetch_departures_for_stop(STOP_A)
+    b = await fetch_departures_for_stop(STOP_B)
+    async with _state_lock:
+        _route_a = a
+        _route_b = b
+    logger.info("Updated stops %s and %s", STOP_A, STOP_B)
 
 
 async def polling_loop():
-    global route_data_side_b, route_data_side_a
     while True:
-        route_data_side_a =  await get_data_route_a()
-        route_data_side_b =  await get_data_route_b()
-        await asyncio.sleep(60)
-
+        try:
+            await _update_once()
+        except Exception:
+            logger.exception("Unhandled error in polling loop")
+        await asyncio.sleep(POLL_INTERVAL)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     task = asyncio.create_task(polling_loop())
-    yield
-    task.cancel()
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
 
 app = FastAPI(lifespan=lifespan)
-
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(polling_loop())
 
 
 @app.get("/departures")
 async def get_departures():
-    if route_data_side_b is None or route_data_side_a is None:
-        return {"message": "data is'nt loaded"}
-    if ("error" in route_data_side_b and route_data_side_b["error"])  or ("error" in route_data_side_a and route_data_side_a["error"]):
-        return {"message": "data is failed"}
-    return {"data": {
-        "side_a": route_data_side_a,
-        "side_b": route_data_side_b
-    }}
+    async with _state_lock:
+        a = _route_a
+        b = _route_b
+    if a is None or b is None:
+        return JSONResponse({"message": "data isn't loaded"}, status_code=503)
+    if a.get("error") or b.get("error"):
+        return JSONResponse({"message": "fetch error", "side_a": a, "side_b": b}, status_code=502)
+    return {"side_a": a, "side_b": b}
+
+
+@app.get("/")
+async def index():
+    async with _state_lock:
+        a = _route_a or {}
+        b = _route_b or {}
+    html = "<html><body><h1>Departures (preview)</h1><pre>{}</pre><pre>{}</pre></body></html>".format(a, b)
+    return HTMLResponse(html)
