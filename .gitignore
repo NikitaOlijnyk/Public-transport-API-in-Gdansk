@@ -7,6 +7,7 @@ __pycache__/
 .venv/
 venv/
 env/
+.env
 
 # Distribution / packaging
 .Python
@@ -42,13 +43,4 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# IDE settings
-.vscode/
-.idea/
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
