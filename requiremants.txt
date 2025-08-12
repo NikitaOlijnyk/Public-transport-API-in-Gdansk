@@ -1,0 +1,7 @@
+requests
+pytest
+python-dateutil
+tzdata
+fastapi
+uvicorn
+python-dotenv
