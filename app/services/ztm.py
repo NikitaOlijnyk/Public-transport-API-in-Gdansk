@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, HTMLResponse
 from dotenv import load_dotenv
 
-from app.utils.parse_time import parse_time_to_warsaw
+from app.utils.parse_time import parse_time
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -33,7 +33,7 @@ _state_lock = asyncio.Lock()
 
 def transform_departure_item(item: dict) -> dict:
     est = item.get("estimatedTime") or item.get("estimated_time") or item.get("theoreticalTime")
-    dt_local = parse_time_to_warsaw(est, TZ)
+    dt_local = parse_time(est, TZ)
     delay = item.get("delayInSeconds")
     try:
         delay = int(delay) if delay is not None else 0

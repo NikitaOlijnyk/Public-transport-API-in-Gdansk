@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-def parse_time_to_warsaw(timestr: str, tz):
+def parse_time(timestr: str, tz):
     if not timestr:
         return None
     try:
