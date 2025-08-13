@@ -11,17 +11,18 @@ class ZTMService:
     formatter: Optional[Callable] = None
     
     def __init__(self, url: str,   http_client_factory: Callable[[], httpx.AsyncClient], timeout: int, formatter):
-        self.api_url = url.rstrip("/")
+        self.api_url = url
         self.http_client_factory = http_client_factory
         self.timeout = timeout
         self.formatter = formatter
         self.error = False
         self._lock = asyncio.Lock()
 
-    async def getData(self):
+    async def getData(self, query):
         try:
             async with self.http_client_factory(timeout = self.timeout) as client:
-                resp = await client.get(self.api_url)
+                url = f"{self.api_url}/{query}"
+                resp = await client.get(url)
                 resp.raise_for_status()
                 payload = resp.json()
         except  Exception as e:

@@ -13,6 +13,11 @@ from app.utils.data_parser import transform_departure_item
 
 load_dotenv()
 
+API_URL = os.getenv("API_URL", "https://ckan2.multimediagdansk.pl")
+STOP_A = os.getenv("STOP_A", "")
+STOP_B = os.getenv("STOP_B", "")
+POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "60"))
+
 router = APIRouter()
 
 
@@ -20,11 +25,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 
+query_a = f"departures?stopId={STOP_A}"
+query_b = f"departures?stopId={STOP_A}"
 
-API_URL_A = "https://ckan2.multimediagdansk.pl/departures?stopId=2101"
-API_URL_B = "https://ckan2.multimediagdansk.pl/departures?stopId=2102"
-
-POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "60"))
 
 logger = logging.getLogger("ztm")
 logging.basicConfig(level=logging.INFO)
@@ -32,17 +35,13 @@ logging.basicConfig(level=logging.INFO)
 
 _state_lock = asyncio.Lock()
 
-
-
-
-
-_route_a = ZTMService(API_URL_A, httpx.AsyncClient, 10, transform_departure_item)
-_route_b = ZTMService(API_URL_B, httpx.AsyncClient, 10, transform_departure_item)
+_route_a = ZTMService(API_URL, httpx.AsyncClient, 10, transform_departure_item)
+_route_b = ZTMService(API_URL, httpx.AsyncClient, 10, transform_departure_item)
 
 async def _update_once():
      await asyncio.gather(
-        _route_a.getData(),
-        _route_b.getData()
+        _route_a.getData(query_a),
+        _route_b.getData(query_b)
     )
 
 async def polling_loop():
