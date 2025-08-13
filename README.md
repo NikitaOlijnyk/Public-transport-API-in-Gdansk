@@ -31,3 +31,11 @@ POLL_INTERVAL=60
 ```bash
 uvicorn main:app --reload --port 8000
 ```  
+
+
+## Running Tests
+
+To run tests, make sure you are in the project root directory and use:
+
+```bash
+PYTHONPATH=. pytest
