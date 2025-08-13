@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Departures</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #333;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #eee;
+        }
+        h2 {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h2>Side A</h2>
+    <table>
+        <tr>
+            <th>Line</th>
+            <th>Direction</th>
+            <th>Time (Warsaw)</th>
+            <th>Delay (sec)</th>
+            <th>Vehicle</th>
+        </tr>
+        {% for dep in side_a %}
+        <tr>
+            <td>{{ dep.line }}</td>
+            <td>{{ dep.direction }}</td>
+            <td>{{ dep.time_warsaw }}</td>
+            <td>{{ dep.delay_seconds }}</td>
+            <td>{{ dep.raw.vehicleCode }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>Side B</h2>
+    <table>
+        <tr>
+            <th>Line</th>
+            <th>Direction</th>
+            <th>Time (Warsaw)</th>
+            <th>Delay (sec)</th>
+            <th>Vehicle</th>
+        </tr>
+        {% for dep in side_b %}
+        <tr>
+            <td>{{ dep.line }}</td>
+            <td>{{ dep.direction }}</td>
+            <td>{{ dep.time_warsaw }}</td>
+            <td>{{ dep.delay_seconds }}</td>
+            <td>{{ dep.raw.vehicleCode }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
