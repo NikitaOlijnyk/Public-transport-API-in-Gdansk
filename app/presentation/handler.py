@@ -6,7 +6,6 @@ from fastapi.responses import JSONResponse, HTMLResponse
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from contextlib import asynccontextmanager
 from fastapi.templating import Jinja2Templates
 from app.services.ztm import ZTMService
 from app.utils.data_parser import transform_departure_item
@@ -19,7 +18,6 @@ router = APIRouter()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-
 
 
 
@@ -54,23 +52,6 @@ async def polling_loop():
         except Exception:
             logger.exception("Unhandled error in polling loop")
         await asyncio.sleep(POLL_INTERVAL)
-
-
-# @asynccontextmanager
-# async def lifespan():
-#     task = asyncio.create_task(polling_loop())
-#     try:
-#         yield
-#     finally:
-#         task.cancel()
-#         try:
-#             await task
-#         except asyncio.CancelledError:
-#             pass
-
-
-
-
 
 @router.get("/departures")
 async def get_departures():
