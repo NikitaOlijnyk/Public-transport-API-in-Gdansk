@@ -26,7 +26,7 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 
 query_a = f"departures?stopId={STOP_A}"
-query_b = f"departures?stopId={STOP_A}"
+query_b = f"departures?stopId={STOP_B}"
 
 
 logger = logging.getLogger("ztm")
