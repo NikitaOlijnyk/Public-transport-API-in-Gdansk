@@ -27,11 +27,14 @@ POLL_INTERVAL=60
 ```
 
 🚀 How to Run the Project
-
+### Use web
 ```bash
 uvicorn main:app --reload --port 8000
-```  
-
+```
+### Use cli
+```bash
+python -m cli
+```
 
 ## Running Tests
 
