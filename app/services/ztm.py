@@ -2,19 +2,19 @@ import os
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-
 import httpx
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, HTMLResponse
 from dotenv import load_dotenv
+
+from app.utils.parse_time import parse_time
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+
 
 load_dotenv()
 
@@ -31,26 +31,9 @@ _route_a = None
 _route_b = None
 _state_lock = asyncio.Lock()
 
-
-def parse_time_to_warsaw(timestr: str):
-    if not timestr:
-        return None
-    try:
-        if timestr.endswith("Z"):
-            iso = timestr[:-1] + "+00:00"
-        else:
-            iso = timestr
-        dt = datetime.fromisoformat(iso)
-    except Exception:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(TZ)
-
-
 def transform_departure_item(item: dict) -> dict:
     est = item.get("estimatedTime") or item.get("estimated_time") or item.get("theoreticalTime")
-    dt_local = parse_time_to_warsaw(est)
+    dt_local = parse_time(est, TZ)
     delay = item.get("delayInSeconds")
     try:
         delay = int(delay) if delay is not None else 0
